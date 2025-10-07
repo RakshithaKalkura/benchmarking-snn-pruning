@@ -1,1 +1,1 @@
-Energy and utilisation aware pruning algorithm for Spiking Neural Networks. 
+Benchmarking Energy Efficiency of SNN pruning algorithms on SATA, GPU and ProSperity
