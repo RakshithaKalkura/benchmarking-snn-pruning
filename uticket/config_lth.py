@@ -8,7 +8,7 @@ def get_args():
     parser.add_argument('--dataset', type=str, default='cifar10', help='[cifar10, cifar100]')
     parser.add_argument('--seed', default=1234, type=int)
 
-    parser.add_argument('--timestep', type=int, default=1, help='timestep for SNN')
+    parser.add_argument('--timestep', type=int, default=4, help='timestep for SNN')
     parser.add_argument('--batch_size', type=int, default= 128, help='batch size')
 
     parser.add_argument('--arch', type=str, default='vgg16', help='[vgg16, resnet19]')
