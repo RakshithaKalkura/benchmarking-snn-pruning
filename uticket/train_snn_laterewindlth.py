@@ -1,3 +1,7 @@
+'''
+usage: python uticket/train_snn_laterewindlth.py --dataset cifar10 --arch vgg16 --round 1 --prune_iterations 5 --prune_percent 20 --end_iter 100 --rewinding_epoch 20
+'''
+
 import time
 import utils
 import config_lth

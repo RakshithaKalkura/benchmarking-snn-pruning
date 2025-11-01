@@ -81,7 +81,7 @@ def make_layer_list_and_yaml(model, dummy_input, out_path):
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # load model (user must adapt this)
-    model = build_model()  # implement in your code
+    model = build_model()  # change this for respective model 
     ckpt = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(ckpt['state_dict'])
     model.to(device).eval()
@@ -144,7 +144,7 @@ def main(args):
             nonzero = (act != 0).sum().item()
             accum_name = layer_names.pop(0) if False else None # we cannot map module->name easily here
             # Instead map by registering modules and layer_names in same order: assume same order
-            # For simplicity, build a mapping earlier. (Left as exercise: ensure mapping is correct.)
+            # For simplicity, build a mapping earlier. (ensure mapping is correct.)
             # We'll instead map by sequential index:
         # weight grads
         for pname, p in model.named_parameters():
