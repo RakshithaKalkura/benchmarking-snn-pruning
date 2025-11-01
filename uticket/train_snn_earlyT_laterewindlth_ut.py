@@ -1,3 +1,10 @@
+'''
+usage: python uticket/train_snn_earlyT_laterewindlth_ut.py --dataset cifar10 --arch vgg16 --round 1 --prune_iterations 5 --prune_percent 20 --end_iter 100 --rewinding_epoch 20
+'''
+'''
+Trains and Prunes SNNs using Lottery Ticket Hypothesis with Early Timestep and Late Rewinding with u-Tickets
+'''
+
 import time
 import utils
 import config_lth
@@ -133,8 +140,8 @@ def main():
 
     # Copying and Saving Initial State
     initial_state_dict = copy.deepcopy(model.state_dict())
-    utils.checkdir(f"{os.getcwd()}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}")
-    torch.save(model.state_dict(), f"{os.getcwd()}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}/initial_state_dict.pth.tar")
+    utils.checkdir(f"{args.output_dir}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}")
+    torch.save(model.state_dict(), f"{args.output_dir}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}/initial_state_dict.pth.tar")
 
     # Making Initial Mask
     mask = make_mask(model)
@@ -236,7 +243,7 @@ def main():
                     best_accuracy = accuracy
                     utils.checkdir(f"{os.getcwd()}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}")
                     torch.save(model,
-                               f"{os.getcwd()}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}/{_ite}_model.pth.tar")
+                               f"{args.output_dir}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}/{_ite}_model.pth.tar")
 
             # Training
             loss = train(args, iter_, train_loader, model, criterion, optimizer, scheduler)
@@ -251,7 +258,7 @@ def main():
                 print ('find laterewinding weight--------')
                 initial_state_dict = copy.deepcopy(model.state_dict())
                 torch.save(initial_state_dict,
-                           f"{os.getcwd()}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}/initial_state_dict_rewind.pth.tar")
+                           f"{args.output_dir}/ETsnn_laterewind_ut/{args.arch}/{args.dataset}/round{args.round}/initial_state_dict_rewind.pth.tar")
 
                 rewinding_epoch = args.rewinding_epoch
 

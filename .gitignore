@@ -4,3 +4,7 @@ Prosperity/data/*.pkl
 saved_models/
 
 data/
+
+*/__pycache__/
+*/**/__pycache__/
+*.pyc

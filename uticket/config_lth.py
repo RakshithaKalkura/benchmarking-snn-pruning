@@ -4,7 +4,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser("SNN-LTH")
     parser.add_argument('--exp_name', type=str, default='snn_pruning',  help='experiment name')
-    parser.add_argument('--data_dir', type=str, default='../dataset/', help='path to the dataset')
+    parser.add_argument('--data_dir', type=str, default='../data/CIFAR10/', help='path to the dataset')
     parser.add_argument('--dataset', type=str, default='cifar10', help='[cifar10, cifar100]')
     parser.add_argument('--seed', default=1234, type=int)
 
@@ -18,8 +18,10 @@ def get_args():
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
     parser.add_argument('--weight-decay', type=float, default=5e-4, help='weight decay')
 
+    parser.add_argument('--output_dir', type=str, default='./saved_models/uticket/', help='path to save the pruned models and logs')
+
     # for lth
-    parser.add_argument("--prune_percent", default=25, type=float, help="Pruning percent")
+    parser.add_argument("--prune_percent", default=25, type=float, help="Pruning percent") # prune percent for each iteration
     parser.add_argument("--prune_iterations", default=15, type=int, help="Pruning iterations count")
     parser.add_argument('--round', type=int, default=4, help='for mean and std === 1 to 5')
     parser.add_argument("--pruning_scope", default="global", type=str)

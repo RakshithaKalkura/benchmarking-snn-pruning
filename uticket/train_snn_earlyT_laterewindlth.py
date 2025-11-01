@@ -1,3 +1,10 @@
+'''
+usage: python uticket/train_snn_earlyT_laterewindlth_ut.py --dataset cifar10 --arch vgg16 --round 1 --prune_iterations 5 --prune_percent 20 --end_iter 100 --rewinding_epoch 20
+'''
+'''
+Trains and Prunes SNNs using Lottery Ticket Hypothesis with Early Timestep and Late Rewinding with u-Tickets
+'''
+
 import time
 import utils
 import config_lth
