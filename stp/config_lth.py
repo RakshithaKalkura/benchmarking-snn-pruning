@@ -4,14 +4,14 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser("SNN-LTH")
     parser.add_argument('--exp_name', type=str, default='snn_pruning',  help='experiment name')
-    parser.add_argument('--data_dir', type=str, default='../datasets', help='path to the dataset')
+    parser.add_argument('--data_dir', type=str, default='./data', help='path to the dataset')
     parser.add_argument('--dataset', type=str, default='cifar10', help='[cifar10, cifar100]')
     parser.add_argument('--seed', default=2023, type=int)
 
     parser.add_argument('--timestep', type=int, default=8, help='timestep for SNN')
     parser.add_argument('--batch_size', type=int, default=128, help='batch size')
 
-    parser.add_argument('--arch', type=str, default='fc2', help='[vgg16, resnet19]')
+    parser.add_argument('--arch', type=str, default='resnet19', help='[vgg16, resnet19]')
     parser.add_argument('--optimizer', type=str, default='sgd', help='[sgd, adam]')
     parser.add_argument('--scheduler', type=str, default='cosine', help='[step, cosine]')
     parser.add_argument('--learning_rate', type=float, default=0.1, help='learnng rate')

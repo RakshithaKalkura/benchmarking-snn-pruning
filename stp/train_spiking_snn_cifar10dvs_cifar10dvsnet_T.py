@@ -1,3 +1,10 @@
+'''
+usage: python train_spiking_snn_cifar10dvs_cifar10dvsnet_T.py --arch DVSCIFAR10NET --dataset cifar10dvs --timestep 20 --batch_size 64 --learning_rate 0.001 --end_iter 100 --rewinding_epoch 20 --prune_iterations 5 --prune_percent 0.2 --round 1
+'''
+'''
+this code is used to implement LTH on Spiking CIFAR10DVSNet with CIFAR10DVS dataset with timestep decision based on KL divergence
+'''
+
 import random
 import time
 

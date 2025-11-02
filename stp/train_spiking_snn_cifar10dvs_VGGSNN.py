@@ -1,3 +1,11 @@
+'''
+usage: python train_spiking_snn_cifar10dvs_VGGSNN.py --arch VGGSNN --dataset cifar10dvs --timestep 20 --batch_size 64 --learning_rate 0.001 --end_iter 100 --rewinding_epoch 20 --prune_iterations 5 --prune_percent 0.2 --round 1
+'''
+'''
+this code is used to implement LTH on Spiking VGGSNN with CIFAR10DVS dataset
+spatial pruning method
+'''
+
 import numpy as np
 import torch
 import utils
