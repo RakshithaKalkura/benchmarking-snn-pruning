@@ -61,22 +61,58 @@ class ResNetBasicBlockSNN(nn.Module):
         return out
 
     def connects(self, sparse, dense):
+        """
+        Compute connections for utilization check.
+        IMPORTANT: apply downsample.connects() to the original input (identity_in),
+        not to the post-conv 'sparse'/'dense' that were transformed by conv1/conv2.
+        """
         conn, total = 0, 0
+
+        # Save original sparse/dense for identity / downsample path
+        sparse_in, dense_in = sparse, dense
+
+        # First conv
         c, t, sparse, dense = self.conv1.connects(sparse, dense)
         conn, total = conn + c, total + t
+
+        # Second conv
         c, t, sparse, dense = self.conv2.connects(sparse, dense)
         conn, total = conn + c, total + t
+
+        # Downsample must operate on original input (identity branch)
         if self.downsample is not None:
-            c, t, sparse, dense = self.downsample.connects(sparse, dense)
+            c, t, sparse_id, dense_id = self.downsample.connects(sparse_in, dense_in)
             conn, total = conn + c, total + t
+            # Note: do NOT overwrite `sparse/dense` used by main path; the function
+            # returns (sparse, dense) for the downsampled identity (sparse_id/dense_id)
+            # but here for connects we only accumulate conn/total and return the transformed
+            # main-path sparse/dense for upper layers.
         return conn, total, sparse, dense
 
+
     def calc_c(self, x, prev_layers=None):
+        """
+        Compute shape-propagation (calc) for the block.
+        Important: downsample (1x1 conv) must be applied to the original input (identity_in),
+        not to the output of conv2. This preserves expected channel counts.
+        """
+        # Save original input for the identity/downsample branch
+        identity_in = x
+
+        # Propagate through conv1 and conv2 (sequentially)
         x = self.conv1.calc_c(x, prev_layers or [])
         x = self.conv2.calc_c(x, [self.conv1])
+
+        # If downsample exists, apply it to the original input (identity branch)
         if self.downsample is not None:
-            x = self.downsample.calc_c(x)
+            identity = self.downsample.calc_c(identity_in)
+        else:
+            identity = identity_in
+
+        # Element-wise add; shapes should match
+        x = x + identity
         return x
+
 
 
 class ResNet19SNN(nn.Module):

@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument('--not-prune-neuron', action='store_true')
     parser.add_argument('-b', '--batch-size', default=128, type=int)
     parser.add_argument('--T', default=2, type=int, help='simulation steps')
-    parser.add_argument('--model', default='Resnet19SNN', help='model type')
+    parser.add_argument('--model', default='ResNet19SNN', help='model type')
     parser.add_argument('--dataset', default='CIFAR10', help='dataset type')
     parser.add_argument('--augment', action='store_true', help='Additional augment')
     parser.add_argument('--device', default='cuda', help='device')
@@ -603,6 +603,9 @@ def main():
     elif args.model in sew_resnet.__dict__:
         model = sew_resnet.__dict__[args.model](zero_init_residual=args.zero_init_residual,
                                                 T=args.T, num_classes=num_classes).cuda()
+    elif args.model in resnet.__dict__:
+        base_w = 64
+        model = resnet.__dict__[args.model](T=args.T,base_width=base_w, num_classes=num_classes).cuda()
     else:
         raise NotImplementedError(args.model)
 
