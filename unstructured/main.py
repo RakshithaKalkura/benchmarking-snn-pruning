@@ -1,3 +1,7 @@
+'''
+usage: main.py [-h] [--seed SEED] [--epoch-search EPOCH_SEARCH] [--epoch-finetune EPOCH_FINETUNE] 
+'''
+
 import logging
 import os
 import random
@@ -43,9 +47,9 @@ def parse_args():
                         help='when to fine tune, -1 means will not fine tune')
     parser.add_argument('--not-prune-weight', action='store_true')
     parser.add_argument('--not-prune-neuron', action='store_true')
-    parser.add_argument('-b', '--batch-size', default=16, type=int)
-    parser.add_argument('--T', default=8, type=int, help='simulation steps')
-    parser.add_argument('--model', default='Cifar10Net', help='model type')
+    parser.add_argument('-b', '--batch-size', default=128, type=int)
+    parser.add_argument('--T', default=2, type=int, help='simulation steps')
+    parser.add_argument('--model', default='Resnet19SNN', help='model type')
     parser.add_argument('--dataset', default='CIFAR10', help='dataset type')
     parser.add_argument('--augment', action='store_true', help='Additional augment')
     parser.add_argument('--device', default='cuda', help='device')
