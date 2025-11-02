@@ -21,7 +21,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
-from models import cifar10dvs, sew_resnet, cifar10
+from models import cifar10dvs, sew_resnet, cifar10, resnet
 from models.submodules.sparse import ConvBlock, Mask
 from sparsity.penalty_term import PenaltyTerm
 from sparsity.temp_scheduler import SplitTemperatureScheduler, TemperatureScheduler
@@ -591,7 +591,7 @@ def main():
     # model
 
     model: Union[cifar10.Cifar10Net, cifar10dvs.VGGSNN, sew_resnet.SEWResNet_ImageNet,
-                 sew_resnet.SEWResNet_CIFAR, sew_resnet.ResNet19]
+                 sew_resnet.SEWResNet_CIFAR, sew_resnet.ResNet19, resnet.ResNet19SNN]
     if args.model in cifar10.__dict__:
         model = cifar10.__dict__[args.model](T=args.T, num_classes=num_classes).cuda()
     elif args.model in cifar10dvs.__dict__:
