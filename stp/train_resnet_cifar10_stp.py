@@ -269,7 +269,7 @@ def main():
         #     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=int(args.end_iter - getattr(rewinding_epoch, 0)), eta_min=0)
         if getattr(args, 'scheduler', None) is not None:
           # ensure rewinding_epoch is defined
-          rr = rewinding_epoch if 'rewinding_epoch' in locals() else 0
+          rr = args.rewinding_epoch
           T_max = max(1, int(args.end_iter - rr))
           scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=0)
 
@@ -286,13 +286,13 @@ def main():
         loss = 0
         accuracy = 0
         # for iter_ in range(getattr(args, 'resume_epoch', 0) + 1, args.end_iter - getattr(rewinding_epoch, 0) + 1):
-        rr = rewinding_epoch if 'rewinding_epoch' in locals() else 0
+        rr = args.rewinding_epoch
         start_iter = getattr(args, 'resume_epoch', 0) + 1
         end_iter = max(1, int(args.end_iter - rr)) + 1
         for iter_ in range(start_iter, end_iter):
             if (iter_) % args.valid_freq == 0 or iter_ == 1:
                 accuracy = test(model, test_loader, nn.CrossEntropyLoss(), timestep)
-                writer.add_scalar('accuracy_' + f'{_ite}', accuracy, iter_ + getattr(rewinding_epoch, 0))
+                writer.add_scalar('accuracy_' + f'{_ite}', accuracy, iter_ + args.rewinding_epoch)
 
                 if accuracy > best_accuracy:
                     best_accuracy = accuracy
