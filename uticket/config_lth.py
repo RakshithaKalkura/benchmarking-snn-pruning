@@ -4,7 +4,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser("SNN-LTH")
     parser.add_argument('--exp_name', type=str, default='snn_pruning',  help='experiment name')
-    parser.add_argument('--data_dir', type=str, default='../data/CIFAR10/', help='path to the dataset')
+    parser.add_argument('--data_dir', type=str, default='/home/test/rakshitha/benchmarking-snn-pruning/data/CIFAR10', help='path to the dataset')
     parser.add_argument('--dataset', type=str, default='cifar10', help='[cifar10, cifar100]')
     parser.add_argument('--seed', default=1234, type=int)
 
@@ -30,6 +30,8 @@ def get_args():
     parser.add_argument("--print_freq", default=1, type=int)
     parser.add_argument("--rewinding_epoch", default=20, type=int)
     parser.add_argument("--sparsity_round", default=0, type=int)
+
+    parser.add_argument('--gpu_ids', type=str, default='1', help='GPU IDs to use')
 
 
 

@@ -79,6 +79,8 @@ def main():
     cudnn.benchmark = True
     cudnn.deterministic = True
 
+    # device = torch.device(f"cuda:{args.gpu_id}" if torch.cuda.is_available() else "cpu")
+    # torch.cuda.set_device(device)
     # define dataset
     train_transform, valid_transform = data_transforms(args)
     if args.dataset == 'fmnist':
