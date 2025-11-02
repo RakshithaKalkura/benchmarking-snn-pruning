@@ -29,6 +29,7 @@ from utils import data_transforms  # optional if used elsewhere
 from spikingjelly.activation_based import functional, neuron
 from spikingjelly.activation_based.functional import reset_net
 
+
 # ---------------------------------------------------------------------
 # Small helper: same TET_loss you used
 def TET_loss(outputs, labels, criterion=nn.CrossEntropyLoss(), means=1.0, lamb=1e-3):
@@ -146,27 +147,118 @@ def load_data_cifar10(data_dir, batch_size, workers=4, augment=False):
     return trainset, testset, train_loader, test_loader
 
 # ---------------------------------------------------------------------
-def test(model, test_loader, criterion, timestep):
+# def test(model, test_loader, criterion, timestep):
+#     model.eval()
+#     correct = 0
+#     total = 0
+#     with torch.no_grad():
+#         for imgs, targets in test_loader:
+#             imgs, targets = imgs.cuda(), targets.cuda()
+#             # make sure model uses desired timestep
+#             model.total_timestep = timestep
+#             out = model(imgs)
+#             # out is list length T, aggregate
+#             if isinstance(out, list):
+#                 logits = torch.stack(out, dim=0).mean(0)  # [N,C]
+#             else:
+#                 logits = torch.mean(out, dim=0)
+#             reset_net(model)
+#             pred = logits.argmax(dim=1)
+#             correct += (pred == targets).sum().item()
+#             total += targets.size(0)
+#     acc = 100.0 * correct / total
+#     return acc
+
+def test(model, test_loader, criterion=None, timestep=None, device=None, verbose=False):
+    """
+    Robust test function for CIFAR-10 SNN models.
+    - model: the network
+    - test_loader: DataLoader returning (imgs, targets)
+    - criterion: optional loss fn (e.g. nn.CrossEntropyLoss())
+    - timestep: optional int to set model.total_timestep if model supports it
+    - device: torch.device or None (auto-detect)
+    - verbose: if True prints first-batch shapes for debugging
+    Returns: (accuracy_percent, avg_loss_or_None)
+    """
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     model.eval()
-    correct = 0
     total = 0
+    correct = 0
+    loss_sum = 0.0
+    seen_first = False
+
     with torch.no_grad():
-        for imgs, targets in test_loader:
-            imgs, targets = imgs.cuda(), targets.cuda()
-            # make sure model uses desired timestep
-            model.total_timestep = timestep
+        for batch_idx, (imgs, targets) in enumerate(test_loader):
+            # move to device (use non_blocking if DataLoader uses pin_memory=True)
+            imgs = imgs.to(device, non_blocking=True)
+            targets = targets.to(device, non_blocking=True)
+
+            # set timestep if model has attribute
+            if timestep is not None and hasattr(model, 'total_timestep'):
+                try:
+                    model.total_timestep = int(timestep)
+                except Exception:
+                    pass
+
             out = model(imgs)
-            # out is list length T, aggregate
-            if isinstance(out, list):
-                logits = torch.stack(out, dim=0).mean(0)  # [N,C]
+
+            # --- normalize output into [N, C] logits ---
+            if isinstance(out, (list, tuple)):
+                # out is list of length T where each element usually [N, C]
+                try:
+                    out_tensor = torch.stack(out, dim=0)   # [T, N, C]
+                except Exception:
+                    # fallback: elements may themselves be [T,N,C] or shapes vary
+                    tensors = []
+                    for e in out:
+                        if torch.is_tensor(e):
+                            tensors.append(e)
+                        else:
+                            raise RuntimeError("Unsupported element in output list")
+                    out_tensor = torch.stack(tensors, dim=0)
+            elif torch.is_tensor(out):
+                out_tensor = out
             else:
-                logits = torch.mean(out, dim=0)
-            reset_net(model)
-            pred = logits.argmax(dim=1)
-            correct += (pred == targets).sum().item()
+                raise RuntimeError(f"Unsupported model output type: {type(out)}")
+
+            # out_tensor can be:
+            #  - [T, N, C]  -> mean over T -> [N, C]
+            #  - [N, C]     -> already logits
+            if out_tensor.dim() == 3:
+                logits = out_tensor.mean(0)
+            elif out_tensor.dim() == 2:
+                logits = out_tensor
+            else:
+                # try to collapse leading dims to get [N,C]
+                logits = out_tensor.view(out_tensor.shape[0], -1)
+
+            # debug print first batch shapes once
+            if verbose and not seen_first:
+                print(f"[test] batch_idx={batch_idx}: imgs.shape={imgs.shape}, targets.shape={targets.shape}, out_tensor.shape={out_tensor.shape}, logits.shape={logits.shape}")
+                seen_first = True
+
+            # compute loss if requested
+            if criterion is not None:
+                loss = criterion(logits, targets)
+                loss_sum += float(loss.item()) * targets.size(0)
+
+            # accuracy
+            preds = logits.argmax(dim=1)
+            correct += int((preds == targets).sum().item())
             total += targets.size(0)
-    acc = 100.0 * correct / total
-    return acc
+
+            # reset spiking states
+            try:
+                reset_net(model)
+            except Exception:
+                pass
+
+    acc = 100.0 * (correct / total) if total > 0 else 0.0
+    avg_loss = (loss_sum / total) if (criterion is not None and total > 0) else None
+    return acc, avg_loss
+
 
 # ---------------------------------------------------------------------
 def train(args, epoch, train_loader, model, criterion, optimizer, scheduler=None, iteration=None, timestep=None):
@@ -211,8 +303,8 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True
 
     # writer
     writer = SummaryWriter(f"./runs/resnet19_cifar10_decision/{args.dataset}_ResNet19")
@@ -291,8 +383,8 @@ def main():
         end_iter = max(1, int(args.end_iter - rr)) + 1
         for iter_ in range(start_iter, end_iter):
             if (iter_) % args.valid_freq == 0 or iter_ == 1:
-                accuracy = test(model, test_loader, nn.CrossEntropyLoss(), timestep)
-                writer.add_scalar('accuracy_' + f'{_ite}', accuracy, iter_ + args.rewinding_epoch)
+                accuracy, avg_loss = test(model, test_loader, torch.nn.CrossEntropyLoss(), timestep)
+                # writer.add_scalar('accuracy_' + f'{_ite}', accuracy, iter_ + args.rewinding_epoch)
 
                 if accuracy > best_accuracy:
                     best_accuracy = accuracy
@@ -327,7 +419,7 @@ def main():
         torch.save(checkpoint, f"{os.getcwd()}/snn_laterewind_lth/resnet19/{args.arch}/{args.dataset}/itearation{_ite}/ckpt.pth.tar")
         best_accuracy = 0
 
-    writer.close()
+    # writer.close()
 
 # ---------------------------------------------------------------------
 if __name__ == '__main__':
