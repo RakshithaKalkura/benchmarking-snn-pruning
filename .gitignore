@@ -30,3 +30,6 @@ logs/
 .DS_Store
 .ipynb_checkpoints/
 snn_laterewind_lth/
+
+gradR/
+Prosperity/
