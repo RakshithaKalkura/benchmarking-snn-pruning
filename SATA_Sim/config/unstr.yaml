@@ -1,6 +1,9 @@
 # resnet19_unstructured.yaml
 # Network descriptor for SATA (synthetic mapping for ResNet-19 CIFAR10)
 name: resnet19_cifar10_unstructured
+General:
+  timestep: 10
+  sparsity: 0.5
 input:
   channels: 3
   height: 32

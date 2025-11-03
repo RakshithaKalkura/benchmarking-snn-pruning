@@ -1,5 +1,8 @@
 # resnet19_stp.yaml
 name: resnet19_cifar10_stp
+General:
+  timestep: 10
+  sparsity: 0.5
 input:
   channels: 3
   height: 32

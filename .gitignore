@@ -21,7 +21,7 @@ logs/
 *.zip   
 *.tar.gz
 *.h5
-*.npy
+# *.npy
 *.npz
 *.ckpt.index
 *.ckpt.data-00000-of-00001
