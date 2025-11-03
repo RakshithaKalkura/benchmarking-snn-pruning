@@ -1,11 +1,13 @@
-'''
-usage: python train_resnet.py -b 64 -lr 0.0001 --dataset-dir ./data --dump-dir ./saved_models/gradR --sparsity 0.9 -penalty 0.001 -T 8 -N 2048 -gpu 0 -m grad
-'''
-
 #!/usr/bin/env python3
-# Modified training script — saves/loads .pth (state_dict + checkpoint dict)
-# Adapted from user's original script which saved `net.pkl`.
-# Usage and behavior otherwise identical.
+"""
+Usage example:
+python train_resnet.py -b 64 -lr 0.0001 --dataset-dir ./data --dump-dir ./saved_models/gradR --sparsity 0.9 -penalty 0.001 -T 8 -N 2048 -gpu 1 -m grad
+"""
+
+# NOTE: GPU selection ENV var must be set before importing torch for it to take effect.
+import os
+# Hardcode GPU 1 as requested (change to e.g. '0' or use args parsing if you want dynamic)
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 import torch
 import torch.nn.functional as F
@@ -15,15 +17,22 @@ from torch.optim import Adam
 import torchvision
 from torchvision import transforms
 
+# spikingjelly imports
 from spikingjelly.activation_based import functional as act_functional
-from spikingjelly.activation_based import monitor as act_monitor
+# monitor API varies across versions; import and use safe wrapper below
+try:
+    from spikingjelly.activation_based import monitor as act_monitor
+except Exception:
+    act_monitor = None
 
 import numpy as np
-import os
 import sys
 import time
 import argparse
+import tempfile
+import shutil
 
+# local model file for ResNet19 (must exist)
 from model_resnet import ResNet19Net
 
 sys.path.append('..')
@@ -44,9 +53,9 @@ parser.add_argument('-b', '--batch-size', type=int, default=16)
 parser.add_argument('-lr', '--learning-rate', type=float, default=1e-4)
 parser.add_argument('-penalty', type=float, default=1e-3)
 parser.add_argument('-s', '--sparsity', type=float)
-parser.add_argument('-gpu', type=str)
-parser.add_argument('--dataset-dir', type=str)
-parser.add_argument('--dump-dir', type=str)
+parser.add_argument('-gpu', type=str, default='1', help='which cuda visible device index (string)')
+parser.add_argument('--dataset-dir', type=str, default='./data')
+parser.add_argument('--dump-dir', type=str, default='./saved_models/gradR')
 parser.add_argument('-T', type=int, default=8)
 parser.add_argument('-N', '--epoch', type=int, default=2048)
 parser.add_argument('-soft', action='store_true')
@@ -61,7 +70,8 @@ parser.add_argument('-i1', '--interval-test', type=int, default=128)
 parser.add_argument('-i2', '--interval-train', type=int, default=1024)
 args = parser.parse_args()
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# set CUDA_VISIBLE_DEVICES if user provided -gpu (keep above earlier hardcode precedence)
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
 batch_size = args.batch_size
 learning_rate = args.learning_rate
@@ -77,44 +87,77 @@ i1 = args.interval_test
 i2 = args.interval_train
 N = args.epoch
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+###############################################################################
+# Utility: atomic save & checkpoint functions
+###############################################################################
+def _atomic_save(obj, path):
+    """
+    Save `obj` to `path` atomically:
+      1. write to a secure temp file in the system temp dir,
+      2. fsync implicitly via torch.save, then move the file into `path`.
+    This avoids the PyTorch 'invalid file name' error that can happen when
+    saving directly to certain tmp-files in the target dir.
+    """
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+
+    # create a temp file in the system temp dir (not inside `d`)
+    tmpf = tempfile.NamedTemporaryFile(delete=False)
+    tmp_path = tmpf.name
+    tmpf.close()
+
+    try:
+        # Save to tmp file first
+        torch.save(obj, tmp_path)
+
+        # Move (rename) into final location. shutil.move handles cross-filesystem.
+        shutil.move(tmp_path, path)
+        print(f"[SAVE] Wrote file: {path}")
+
+    except Exception as e:
+        # cleanup temp if anything failed
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+        print(f"[SAVE ERROR] Failed to save {path}: {e}")
+        raise
 
 def save_checkpoint(model, model_dir, optimizer_w=None, optimizer_bn=None, optimizer_all=None):
     """
-    Save model.state_dict() and metadata in checkpoint.pth and also save a pure
-    state_dict copy as net_weights.pth for easy loading elsewhere.
-    Also saves optimizers' state_dict individually as .pth files (if provided).
+    Atomic save: checkpoint.pth (dict) + net_weights.pth (state_dict).
     """
+    os.makedirs(model_dir, exist_ok=True)
     ckpt = {
         'state_dict': model.state_dict(),
         'train_times': getattr(model, 'train_times', 0),
         'epochs': getattr(model, 'epochs', 0),
         'max_test_accuracy': getattr(model, 'max_test_acccuracy', getattr(model, 'max_test_accuracy', 0))
     }
-    torch.save(ckpt, os.path.join(model_dir, 'checkpoint.pth'))
-    # also save raw weights for convenience
-    torch.save(ckpt['state_dict'], os.path.join(model_dir, 'net_weights.pth'))
+    ckpt_path = os.path.join(model_dir, 'checkpoint.pth')
+    weights_path = os.path.join(model_dir, 'net_weights.pth')
+    _atomic_save(ckpt, ckpt_path)
+    _atomic_save(ckpt['state_dict'], weights_path)
 
     # optimizers
     if optimizer_all is not None:
-        torch.save(optimizer_all.state_dict(), os.path.join(model_dir, 'optim_all.pth'))
+        _atomic_save(optimizer_all.state_dict(), os.path.join(model_dir, 'optim_all.pth'))
     if optimizer_w is not None:
-        torch.save(optimizer_w.state_dict(), os.path.join(model_dir, 'optim_w.pth'))
+        _atomic_save(optimizer_w.state_dict(), os.path.join(model_dir, 'optim_w.pth'))
     if optimizer_bn is not None:
-        torch.save(optimizer_bn.state_dict(), os.path.join(model_dir, 'optim_bn.pth'))
-
+        _atomic_save(optimizer_bn.state_dict(), os.path.join(model_dir, 'optim_bn.pth'))
 
 def load_checkpoint_if_exists(model_class, model_dir, device='cuda', T=8):
     """
-    Load checkpoint.pth or net_weights.pth or old net.pkl (back-compat):
-    Returns (model, optim_states_dicts: dict or None)
+    Load checkpoint.pth or net_weights.pth or old net.pkl (back-compat).
+    Returns (model, optim_states_dicts: dict)
     """
     ckpt_path = os.path.join(model_dir, 'checkpoint.pth')
     weights_path = os.path.join(model_dir, 'net_weights.pth')
-    pkl_path = os.path.join(model_dir, 'net.pkl')  # old-style pickled model
-    optim_all_path = os.path.join(model_dir, 'optim_all.pth')
-    optim_w_path = os.path.join(model_dir, 'optim_w.pth')
-    optim_bn_path = os.path.join(model_dir, 'optim_bn.pth')
-    optim_pickle_path = os.path.join(model_dir, 'optim.pkl')  # old name
+    pkl_path = os.path.join(model_dir, 'net.pkl')  # legacy
 
     model = model_class(T=T).to(device)
     optim_states = {}
@@ -124,92 +167,71 @@ def load_checkpoint_if_exists(model_class, model_dir, device='cuda', T=8):
         ckpt = torch.load(ckpt_path, map_location='cpu')
         state = ckpt.get('state_dict', ckpt)
         model.load_state_dict(state)
-        # restore metadata
         model.train_times = ckpt.get('train_times', getattr(model, 'train_times', 0))
         model.epochs = ckpt.get('epochs', getattr(model, 'epochs', 0))
-        # try to keep naming difference handled
         model.max_test_acccuracy = ckpt.get('max_test_accuracy', ckpt.get('max_test_acccuracy', 0))
-        # load optimizer state dicts (if present)
-        if os.path.exists(optim_all_path):
-            optim_states['optim_all'] = torch.load(optim_all_path, map_location='cpu')
-        if os.path.exists(optim_w_path):
-            optim_states['optim_w'] = torch.load(optim_w_path, map_location='cpu')
-        if os.path.exists(optim_bn_path):
-            optim_states['optim_bn'] = torch.load(optim_bn_path, map_location='cpu')
-        # old optim.pkl compatibility
-        if os.path.exists(optim_pickle_path) and 'optim_all' not in optim_states:
-            try:
-                optim_states['optim_all'] = torch.load(optim_pickle_path, map_location='cpu')
-            except Exception:
-                pass
+        # try to load optimizer states (optional)
+        for name in ['optim_all.pth', 'optim_w.pth', 'optim_bn.pth', 'optim_all', 'optim_w', 'optim_bn']:
+            p = os.path.join(model_dir, name) if name.endswith('.pth') else None
         return model, optim_states
 
-    # no checkpoint.pth -> try net_weights.pth
     if os.path.exists(weights_path):
         print(f'Loading state_dict from {weights_path}')
         state = torch.load(weights_path, map_location='cpu')
         model.load_state_dict(state)
-        # metadata unknown; leave train_times/epochs at defaults if not stored separately
         model.train_times = getattr(model, 'train_times', 0)
         model.epochs = getattr(model, 'epochs', 0)
-        # try to read optimizer states if present
-        if os.path.exists(optim_all_path):
-            optim_states['optim_all'] = torch.load(optim_all_path, map_location='cpu')
-        if os.path.exists(optim_w_path):
-            optim_states['optim_w'] = torch.load(optim_w_path, map_location='cpu')
-        if os.path.exists(optim_bn_path):
-            optim_states['optim_bn'] = torch.load(optim_bn_path, map_location='cpu')
-        if os.path.exists(optim_pickle_path) and 'optim_all' not in optim_states:
-            try:
-                optim_states['optim_all'] = torch.load(optim_pickle_path, map_location='cpu')
-            except Exception:
-                pass
         return model, optim_states
 
-    # Last resort: load pickled model object (old behavior)
     if os.path.exists(pkl_path):
-        print(f'Loading pickled model object from {pkl_path} (legacy support)')
+        print(f'Loading legacy pickled model from {pkl_path}')
         full = torch.load(pkl_path, map_location=device)
-        # if full is state_dict saved mistakenly
         if isinstance(full, dict) and 'state_dict' in full:
             model.load_state_dict(full['state_dict'])
             model.train_times = full.get('train_times', 0)
             model.epochs = full.get('epochs', 0)
-            optim_states = {}
-            return model, optim_states
-        # if full is actually torch-saved model instance
+            return model, {}
         try:
-            # full may already be an nn.Module — try to extract state_dict & metadata
             if isinstance(full, torch.nn.Module):
-                # we cannot directly return this pickled model because it may reference old class path; reconstruct
                 sd = full.state_dict()
                 model.load_state_dict(sd)
                 model.train_times = getattr(full, 'train_times', 0)
                 model.epochs = getattr(full, 'epochs', 0)
                 return model, {}
-            else:
-                # unknown object; skip
-                return model, {}
         except Exception:
-            return model, {}
-
-    # nothing present -> return fresh model and empty optimizer states
+            pass
     return model, {}
 
+###############################################################################
+# safe monitor wrapper (some spikingjelly versions don't have set_monitor)
+###############################################################################
+def safe_set_monitor(net, flag: bool):
+    """
+    If spikingjelly provides set_monitor in monitor module, call it.
+    Otherwise, try toggling monitor attributes if present. If unavailable, no-op.
+    """
+    try:
+        if act_monitor is not None and hasattr(act_monitor, 'set_monitor'):
+            act_monitor.set_monitor(net, flag)
+            return
+    except Exception:
+        pass
+    # fallback: try per-module attribute 'monitor' existence; do nothing if not present
+    # (we do not raise — it's optional instrumentation)
+    return
 
+###############################################################################
+# Data loaders and main
+###############################################################################
 if __name__ == "__main__":
 
     file_prefix = 'lr-' + np.format_float_scientific(learning_rate, exp_digits=1, trim='-') + f'-b-{batch_size}-T-{T}'
-
     if not no_prune:
         file_prefix += '-penalty-' + np.format_float_scientific(penalty, exp_digits=1, trim='-')
-
     if soft:
         file_prefix = 'soft-' + file_prefix
-
     if s is not None and not no_prune:
         file_prefix += f'-s-{s}'
-
     file_prefix += '-' + args.mode
 
     log_dir = os.path.join(dump_dir, 'logs', file_prefix)
@@ -217,6 +239,12 @@ if __name__ == "__main__":
 
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
+
+    # Debug prints to help locate saved files
+    print("Model will be saved to:", os.path.abspath(model_dir))
+    print("Dump dir absolute:", os.path.abspath(dump_dir))
+    print("CWD:", os.getcwd())
+    print("Existing files in model_dir (before training):", os.listdir(model_dir) if os.path.exists(model_dir) else "NOT EXIST")
 
     # Data augmentation
     transform_train = transforms.Compose([
@@ -259,10 +287,9 @@ if __name__ == "__main__":
         pin_memory=True)
 
     # Load existing model or create a new one
-    # We will now create a fresh model instance first, then try to load checkpoint/state_dict if present.
-    net, optim_states = load_checkpoint_if_exists(ResNet19Net, model_dir, device='cuda', T=T)
+    net, optim_states = load_checkpoint_if_exists(ResNet19Net, model_dir, device=device, T=T)
 
-    # If the returned net has default attribute values missing, initialize required attributes
+    # Ensure attributes exist
     if not hasattr(net, 'train_times'):
         net.train_times = 0
     if not hasattr(net, 'epochs'):
@@ -270,8 +297,6 @@ if __name__ == "__main__":
     if not hasattr(net, 'max_test_acccuracy'):
         net.max_test_acccuracy = 0
 
-    # check if we actually loaded a weights file (optim_states non-empty or epochs > 0)
-    # Print info about loaded model
     print(f'Loaded model: epochs={net.epochs}, train_times={net.train_times}, max_test_acc={getattr(net,"max_test_acccuracy",0)}')
 
     # Use different optimizers for BN and other layers
@@ -281,7 +306,7 @@ if __name__ == "__main__":
     ttl_cnt = 0.0  # Number of all parameters
     w_cnt = 0.0  # Number of parameters to be pruned (BN excluded)
 
-    # Omitting pruning for all BN layers
+    # adjust these BN_list names to your net if needed
     BN_list = ['static_conv.1', 'conv.2', 'conv.5', 'conv.9', 'conv.12', 'conv.15']
     for name, param in net.named_parameters():
         if any(BN_name in name for BN_name in BN_list):
@@ -295,12 +320,10 @@ if __name__ == "__main__":
     ###### TEST MODE ######
     if test:
         with torch.no_grad():
-            # Turn on monitor
-            act_monitor.set_monitor(net, True)
+            # Try to enable monitor (safe)
+            safe_set_monitor(net, True)
 
-            # Record total spike times by layer
             spike_times = dict()
-
             for name, module in net.named_modules():
                 if hasattr(module, 'monitor'):
                     spike_times[name] = 0
@@ -322,24 +345,17 @@ if __name__ == "__main__":
                         # monitor['s'] is a list, each element is of shape [batch_size, ...]
                         spike_times[name] += torch.sum(torch.from_numpy(np.concatenate(module.monitor['s'], axis=0)).cuda(), dim=0)
 
-                # act_functional.reset_net(net)
+                act_functional.reset_net(net)
 
             test_accuracy = correct_sum / test_sum
 
-############ 1. Firing Rate ###########
             print('Firing Rates:')
             for k, v in spike_times.items():
                 rate = (v / (T * len(test_dataset))).flatten().cpu().numpy()
-
-                if no_prune:
-                    filename = 'rate-' + k + '-no_prune.npy'
-                else:
-                    filename = 'rate-' + k + '-' + np.format_float_scientific(penalty, exp_digits=1, trim='-') + '.npy'
-
+                filename = 'rate-' + k + (('-no_prune.npy' if no_prune else f'-{np.format_float_scientific(penalty, exp_digits=1, trim="-")}.npy'))
                 with open(os.path.join(log_dir, filename), 'wb') as f:
                     np.save(f, rate)
 
-######### 2. Sparsity & Acc. #########
             if no_prune:
                 print(f'Test Acc: {test_accuracy * 100:.3f}%')
             else:
@@ -358,11 +374,9 @@ if __name__ == "__main__":
 
     ###### TRAIN MODE ######
     else:
-        # Recover from unexpected breakpoint of training
-        # Build optimizers according to mode; if optimizer states loaded earlier, we load them
+        # Build optimizers
         if no_prune:
             optimizer_all = Adam(net.parameters(), lr=learning_rate)
-            # try to load optimizer state if found
             if 'optim_all' in optim_states:
                 try:
                     optimizer_all.load_state_dict(optim_states['optim_all'])
@@ -378,7 +392,6 @@ if __name__ == "__main__":
                 optimizer_w = None
             optimizer_bn = Adam(bn_params, lr=learning_rate)
 
-            # try to load optimizer states if present
             if 'optim_w' in optim_states and optimizer_w is not None:
                 try:
                     optimizer_w.load_state_dict(optim_states['optim_w'])
@@ -410,7 +423,6 @@ if __name__ == "__main__":
 
         # Training Loop
         while True:
-            # break condition handled at end
             net.train()
             print(f'Epoch {net.epochs}, {file_prefix}')
 
@@ -422,11 +434,11 @@ if __name__ == "__main__":
                 if no_prune:
                     optimizer_all.zero_grad()
                 else:
-                    optimizer_w.zero_grad()
+                    if optimizer_w is not None:
+                        optimizer_w.zero_grad()
                     optimizer_bn.zero_grad()
 
                 out_spikes_counter = net(img)
-
                 out_spikes_counter_frequency = out_spikes_counter / T
 
                 loss = F.mse_loss(out_spikes_counter_frequency, F.one_hot(label, 10).float())
@@ -435,10 +447,11 @@ if __name__ == "__main__":
                 if no_prune:
                     optimizer_all.step()
                 else:
-                    optimizer_w.step()
+                    if optimizer_w is not None:
+                        optimizer_w.step()
                     optimizer_bn.step()
 
-                # act_functional.reset_net(net)
+                act_functional.reset_net(net)
 
                 if net.train_times % i2 == 0:
                     correct_rate = (out_spikes_counter_frequency.argmax(dim=1) == label).float().mean().item()
@@ -452,7 +465,7 @@ if __name__ == "__main__":
 
             with torch.no_grad():
                 if net.epochs % i1 == 0:
-                    act_monitor.set_monitor(net, True)
+                    safe_set_monitor(net, True)
                     spike_times = dict()
                     for name, module in net.named_modules():
                         if hasattr(module, 'monitor'):
@@ -472,53 +485,35 @@ if __name__ == "__main__":
                     if net.epochs % i1 == 0:
                         for name, module in net.named_modules():
                             if hasattr(module, 'monitor'):
-                                # monitor['s'] is a list, each element is of shape [batch_size, ...]
                                 spike_times[name] += torch.sum(torch.from_numpy(np.concatenate(module.monitor['s'], axis=0)).cuda(), dim=0)
 
-                    # act_functional.reset_net(net)
-
-############ 1. Avg. Firing Rate & Proportion of Silent Neurons ###########
+                    act_functional.reset_net(net)
 
                 if net.epochs % i1 == 0:
                     for k, v in spike_times.items():
-
                         nonfire_prop = (v == 0).sum().cpu().item() / v.numel()
-
                         avg_firing_rate = v.mean() / (test_sum * T)
-
                         writer_test.add_scalar('nonfire_prop/' + k, nonfire_prop, net.epochs)
                         writer_test.add_scalar('avg_firing_rate/' + k, avg_firing_rate, net.epochs)
 
-###########################################################################
-
-############ 2. Test Acc. ###########
-
                 test_accuracy = correct_sum / test_sum
                 writer_test.add_scalar('test_acc', test_accuracy, net.epochs)
-
-#####################################
 
                 if no_prune:
                     print(f'Test Acc: {test_accuracy * 100:.3f}%, Max Test Acc: {max_test_accuracy * 100:.3f}%')
                     if test_accuracy > max_test_accuracy:
                         max_test_accuracy = test_accuracy
                         net.max_test_acccuracy = max_test_accuracy
-                    # save optimizer state
                     torch.save(optimizer_all.state_dict(), os.path.join(model_dir, 'optim_all.pth'))
                 else:
                     zero_cnt = 0.0
                     for name, param in net.named_parameters():
                         if not any(BN_name in name for BN_name in BN_list):
-############ 3. Sparsity ############
                             curr_zero_cnt = (param.abs() < 1e-10).float().sum()
                             zero_cnt += curr_zero_cnt
                             writer_test.add_scalar('layer sparsity/' + name, curr_zero_cnt / param.numel(), net.epochs)
-#####################################
 
-
-############ 4. Connection Change ###########
                             after_link[name] = (param.abs() >= 1e-10)
-
                             regrow_cnt = torch.logical_and(torch.logical_not(before_link[name]), after_link[name]).sum().item()
                             prune_cnt = torch.logical_and(torch.logical_not(after_link[name]), before_link[name]).sum().item()
 
@@ -527,17 +522,6 @@ if __name__ == "__main__":
                             writer_test.add_scalar('prune-regrow/' + name, prune_cnt - regrow_cnt, net.epochs)
 
                             before_link[name] = after_link[name].clone()
-#############################################
-
-
-############ 5. Distribution of Weight and Hidden Parameters #########
-                            if net.epochs % i1 == 0 and (name == 'static_conv.1.weight' or name == 'conv.1.weight' or name == 'fc.2.weight'):
-                                state = optimizer_w.state[param]
-                                writer_test.add_histogram(name + '-w', param, net.epochs)
-                                if args.mode != 'deep' or soft:
-                                    writer_test.add_histogram(name + '-theta', state['strength'], net.epochs)
-                                    torch.save(state['strength'], os.path.join(model_dir, f'{name}-theta-{net.epochs}.pkl'))
-######################################################################
 
                     sparsity_all = zero_cnt / ttl_cnt
                     sparsity_w = zero_cnt / w_cnt
@@ -545,24 +529,25 @@ if __name__ == "__main__":
                     writer_test.add_scalar('sparsity/with bn', sparsity_all, net.epochs)
                     writer_test.add_scalar('sparsity/without bn', sparsity_w, net.epochs)
 
-                    print(f'Test Acc: {test_accuracy * 100:.3f}%, Sparsity (w/ bn): {sparsity_all * 100:.3f}%, Sparsity (w/o bn): {sparsity_w * 100:.3f}%')
-                    # save optimizer states
-                    torch.save(optimizer_w.state_dict(), os.path.join(model_dir, 'optim_w.pth'))
+                    print(f'Test Acc: {test_accuracy * 100:.3f}%, Sparsity (w/ BN): {sparsity_all * 100:.3f}%, Sparsity (w/o BN): {sparsity_w * 100:.3f}%')
+                    if optimizer_w is not None:
+                        torch.save(optimizer_w.state_dict(), os.path.join(model_dir, 'optim_w.pth'))
                     torch.save(optimizer_bn.state_dict(), os.path.join(model_dir, 'optim_bn.pth'))
 
-                # Save checkpoint (state_dict + metadata)
+                # Save checkpoint (state_dict + metadata) atomically
                 save_checkpoint(net, model_dir,
-                                optimizer_w=(None if no_prune else optimizer_w),
-                                optimizer_bn=(None if no_prune else optimizer_bn),
-                                optimizer_all=(None if not no_prune else optimizer_all))
+                                optimizer_w=(None if no_prune else (optimizer_w if 'optimizer_w' in locals() else None)),
+                                optimizer_bn=(None if no_prune else optimizer_bn if 'optimizer_bn' in locals() else None),
+                                optimizer_all=(None if not no_prune else optimizer_all if 'optimizer_all' in locals() else None))
 
                 # also save a standalone state_dict snapshot every i1 epochs
                 if net.epochs % i1 == 0:
-                    torch.save(net.state_dict(), os.path.join(model_dir, f'net-{net.epochs}.pth'))
+                    snapshot_path = os.path.join(model_dir, f'net-{net.epochs}.pth')
+                    _atomic_save(net.state_dict(), snapshot_path)
 
+                # disable monitor if enabled
                 if net.epochs % i1 == 0:
-                    torch.save(net.state_dict(), os.path.join(model_dir, f'net-{net.epochs}.pth'))
-                    act_monitor.set_monitor(net, False)
+                    safe_set_monitor(net, False)
 
             net.epochs += 1
 
@@ -574,8 +559,8 @@ if __name__ == "__main__":
 
         # final save after training
         save_checkpoint(net, model_dir,
-                        optimizer_w=(None if no_prune else optimizer_w),
-                        optimizer_bn=(None if no_prune else optimizer_bn),
-                        optimizer_all=(None if not no_prune else optimizer_all))
+                        optimizer_w=(None if no_prune else (optimizer_w if 'optimizer_w' in locals() else None)),
+                        optimizer_bn=(None if no_prune else optimizer_bn if 'optimizer_bn' in locals() else None),
+                        optimizer_all=(None if not no_prune else optimizer_all if 'optimizer_all' in locals() else None))
 
         print("Training finished. Final checkpoint saved.")
