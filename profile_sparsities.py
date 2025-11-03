@@ -12,6 +12,10 @@ Outputs:
  - ./sata_inputs/S.npy, Gf.npy, Gu.npy
  - ./sata_inputs/sparsity_stats.csv
 """
+import sys
+PROJ_ROOT = "/home/test/rakshitha/benchmarking-snn-pruning"
+if PROJ_ROOT not in sys.path:
+    sys.path.insert(0, PROJ_ROOT)
 import argparse
 import os
 import yaml
@@ -21,23 +25,18 @@ import torch
 from torchvision import datasets, transforms
 import torch.nn as nn
 
-# === USER: change this function to return your model instance ===
+from uticket.archs.cifar10.resnet import ResNet19
+from unstructured.models.resnet import ResNet19SNN
+# from stp.archs.cifar10.resnet import ResNet19 #same used for uticket
+
 # The loader must construct the model (architecture) exactly as used for checkpoint
-def build_model_for_repo(T=10, num_classes=10):
-    # Example: your repo exposes resnet.ResNet19 or ResNet19SNN
-    # from models.resnet import ResNet19  <-- adapt if needed
-    # return ResNet19(num_classes=num_classes, total_timestep=T)
-    # ---- default fallback: try common names from models package
-    try:
-        from models import resnet
-        # try ResNet19SNN or ResNet19
-        if 'ResNet19SNN' in resnet.__dict__:
-            return resnet.__dict__['ResNet19SNN'](T=T, num_classes=num_classes)
-        if 'ResNet19' in resnet.__dict__:
-            return resnet.__dict__['ResNet19'](num_classes=num_classes, total_timestep=T)
-    except Exception:
-        pass
-    raise RuntimeError("Please adapt build_model_for_repo() to construct your model.")
+def build_model_for_repo(T, num_classes):
+    if args.arch =='ResNet19SNN':
+        return ResNet19SNN(T=T, base_width=64,num_classes=num_classes)
+    elif arch.arch =='ResNet19':
+            return ResNet19(num_classes=num_classes, total_timestep=T)
+    else:
+        raise RuntimeError("Please adapt build_model_for_repo() to construct your model.")
 
 # === dataloader builder ===
 def build_dataloader(batch_size, n_profile, dataset_root):
@@ -139,6 +138,7 @@ def make_layer_list_and_yaml(model, dummy_input, out_path, batch_size=128, T=10,
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # build model
+    print(args.arch)
     model = build_model_for_repo(T=args.T, num_classes=10)
     # load checkpoint (support common formats)
     ckpt = torch.load(args.checkpoint, map_location='cpu')
@@ -323,6 +323,7 @@ if __name__ == '__main__':
     p.add_argument('--T', type=int, default=10)
     p.add_argument('--n-profile', type=int, default=400)
     p.add_argument('--dataset-root', type=str, default='./data')
-    p.add_argument('--outdir', type=str, default='./sata_inputs')
+    p.add_argument('--outdir', type=str, default='./sata_inputs/uticket/')
+    p.add_argument('--arch', type=str, required=True)
     args = p.parse_args()
     main(args)
