@@ -48,6 +48,15 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 #############################################
 
+# === Suppress Warnings and Verbose Logs ===
+import warnings, logging, os
+warnings.filterwarnings("ignore")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # hide CUDA/cuDNN factory logs
+os.environ["PYTHONWARNINGS"] = "ignore"
+logging.getLogger().setLevel(logging.ERROR)
+# ==========================================
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--batch-size', type=int, default=16)
 parser.add_argument('-lr', '--learning-rate', type=float, default=1e-4)
