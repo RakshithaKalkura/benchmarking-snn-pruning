@@ -1,5 +1,5 @@
 '''
-usage: python train_resnet_cifar10_stp.py --arch ResNet19 --dataset cifar10 --timestep 20 --batch_size 128 --learning_rate 0.001 --end_iter 100 --rewinding_epoch 20 --prune_iterations 5 --prune_percent 0.2 --round 1
+usage: python stp/train_resnet_cifar10_stp.py --arch ResNet19 --dataset cifar10 --timestep 20 --batch_size 128 --learning_rate 0.001 --end_iter 100 --rewinding_epoch 20 --prune_iterations 5 --prune_percent 0.2 --round 1
 '''
 '''
 this code is used to implement LTH on Spiking ResNet19 with CIFAR10 dataset with timestep decision based on KL divergence
