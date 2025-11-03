@@ -1,0 +1,103 @@
+# resnet19_stp.yaml
+name: resnet19_cifar10_stp
+input:
+  channels: 3
+  height: 32
+  width: 32
+batch_size: 128
+# STP jointly prunes timesteps and spatial weights; provide a timestep budget
+timesteps: 8
+stp:
+  decision_kl_threshold: 0.01
+  max_timesteps: 8
+  prune_iterations: 10
+  prune_percent_per_iter: 0.20
+layers:
+  - name: conv1
+    type: conv2d
+    C: 3
+    K: 64
+    R_h: 3
+    R_w: 3
+    H_h: 32
+    H_w: 32
+    stride: [1,1]
+    padding: [1,1]
+  - name: conv2_1
+    type: conv2d
+    C: 64
+    K: 128
+    R_h: 3
+    R_w: 3
+    H_h: 16
+    H_w: 16
+    stride: [2,2]
+    padding: [1,1]
+  - name: conv2_2
+    type: conv2d
+    C: 128
+    K: 128
+    R_h: 3
+    R_w: 3
+    H_h: 16
+    H_w: 16
+    stride: [1,1]
+    padding: [1,1]
+  - name: conv2_3
+    type: conv2d
+    C: 128
+    K: 128
+    R_h: 3
+    R_w: 3
+    H_h: 16
+    H_w: 16
+    stride: [1,1]
+    padding: [1,1]
+  - name: conv3_1
+    type: conv2d
+    C: 128
+    K: 256
+    R_h: 3
+    R_w: 3
+    H_h: 8
+    H_w: 8
+    stride: [2,2]
+    padding: [1,1]
+  - name: conv3_2
+    type: conv2d
+    C: 256
+    K: 256
+    R_h: 3
+    R_w: 3
+    H_h: 8
+    H_w: 8
+    stride: [1,1]
+    padding: [1,1]
+  - name: conv4_1
+    type: conv2d
+    C: 256
+    K: 512
+    R_h: 3
+    R_w: 3
+    H_h: 4
+    H_w: 4
+    stride: [2,2]
+    padding: [1,1]
+  - name: conv4_2
+    type: conv2d
+    C: 512
+    K: 512
+    R_h: 3
+    R_w: 3
+    H_h: 4
+    H_w: 4
+    stride: [1,1]
+    padding: [1,1]
+  - name: fc1
+    type: linear
+    in: 512
+    out: 256
+  - name: fc2
+    type: out_linear
+    in: 256
+    out: 10

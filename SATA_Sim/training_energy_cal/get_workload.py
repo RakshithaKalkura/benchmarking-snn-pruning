@@ -30,7 +30,7 @@ def get_workload(T,b,network_path,sp_s,sp_du,sp_df):
         
 
         for item, doc in documents.items():
-            if doc['type'] == '2dconv':
+            if doc['type'] == 'conv2d':
                 lif_n += doc['K'] * doc['E_h'] * doc['E_w'] * T
                 mac_fwd_n += (1-sp_s) * doc['C']* doc['R_h'] * doc['R_w'] * doc['K'] * doc['E_h'] * doc['E_w']  * T
                 pgu_n += doc['K'] * doc['E_h'] * doc['E_w'] * T

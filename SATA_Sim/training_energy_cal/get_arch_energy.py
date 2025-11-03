@@ -1,6 +1,6 @@
 import argparse
 import energy_configs
-import mem_configs
+import SATA_mem.mem_configs
 import yaml
 
 

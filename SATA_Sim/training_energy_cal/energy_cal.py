@@ -1,16 +1,16 @@
 import argparse
 import energy_configs
-import mem_configs
+import SATA_mem.mem_configs as mem_configs
 import yaml
-from get_workload import get_workload
+from get_workload_new import get_workload
 from get_arch_energy import get_arch_energy
 
 
 
 def main():
 
-    hw_config = 'sata_config.yaml'
-    network_path = 'vgg5_cifar10.yaml'
+    hw_config = './config/sata_config.yaml'
+    network_path = './config/uticket.yaml'
     args = energy_configs.get_args()
     mem_args = mem_configs.get_args()
 
