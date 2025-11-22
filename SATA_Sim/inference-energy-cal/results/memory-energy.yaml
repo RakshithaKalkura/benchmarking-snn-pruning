@@ -1,19 +1,20 @@
 DRAM-system:
-  ifmap: 28812870.246846
-  ofmap: 567790.31631
-  total: 36171574.406100005
-  weight: 6790913.842944
+  ifmap: 2437537.12322575
+  ofmap: 43093.123584
+  total: 17622580.751979746
+  weight: 15141950.505169999
 GLB-ifmap:
-  ifmap-dynamic: 2461365.8084159996
-  ifmap-leakage: 2700226.7891353504
-  ifmap-total: 5161592.59755135
+  ifmap-dynamic: 190826.056559475
+  ifmap-leakage: 2004355.9878584398
+  ifmap-total: 2195182.044417915
 GLB-ofmap:
-  ofmap-dynamic: 18484.864512
-  ofmap-leakage: 2700226.7891353504
-  ofmap-total: 2718711.65364735
+  ofmap-dynamic: 12770.56
+  ofmap-leakage: 2004355.9878584398
+  ofmap-total: 2017126.5478584399
 GLB-weight:
-  weight-dynamic: 414782.020928
-  weight-leakage: 10746597.3329355
-  weight-total: 11161379.3538635
-dram_total: 36171574.406100005
-sram_total: 19041683.6050622
+  weight-dynamic: 924854.29784325
+  weight-leakage: 7977110.2190531995
+  weight-total: 8901964.516896449
+dram_total: 17622580.751979746
+sram_total: 13114273.109172802
+total: 30736853.86115255

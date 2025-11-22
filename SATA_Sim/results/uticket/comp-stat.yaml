@@ -1,0 +1,18 @@
+lif:
+  area: 0.0001161
+  dpower:
+    n: 0.050625
+    y: 0.0170
+  lpower: 7.56e-05
+spad:
+  area: 0.0008019
+  dpower:
+    n: 0.1911
+    y: 0.101169
+  lpower: 0.0004707
+spike-mac:
+  area: 8.73e-05
+  dpower:
+    n: 0.017316
+    y: 0.022555
+  lpower: 5.58e-05

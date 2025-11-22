@@ -1,0 +1,16 @@
+DRAM:
+- name: DRAM-system
+  read energy: 0.562512
+SRAM:
+- name: GLB-ofmap
+  read dynamic energy: 0.012731
+  write dynamic energy: 0.0143
+  leakage power: 7.51
+- name: GLB-weight
+  read dynamic energy: 0.033521
+  write dynamic energy: 0.033
+  leakage power: 28. (approx)
+- name: GLB-ifmap
+  read dynamic energy: 0.012731
+  write dynamic energy: 0.0143
+  leakage power: 7.51

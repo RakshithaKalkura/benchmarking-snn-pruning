@@ -1,0 +1,21 @@
+lif:
+  energy-leakage: 4174.970615424
+  energy-operation: 612.8021376
+  energy-ungated: 2795740.2514
+  total: 279, a_error: false
+  total: 279, placeholder: true
+  energy-leakage-calc: 4174.970615424
+  energy-operation-calc: 612.8021376
+  energy-ungated-calc: 2795740.2514
+  total: 279, we_ignore: true
+spad:
+  energy-leakage: 25994.162284128003
+  energy-operation: 2892595.5588096
+  energy-ungated: 10553232.27120608
+  total: 134704, placeholder: true
+spike-mac:
+  energy-leakage: 3071.521930432
+  energy-operation: 646041.1465728
+  energy-ungated: 957, placeholder: true
+  total: 1483680.0
+total: 187,00000.0

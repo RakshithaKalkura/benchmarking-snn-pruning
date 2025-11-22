@@ -1,4 +1,3 @@
-# resnet19_uticket.yaml
 name: resnet19_cifar10_uticket
 General:
   timestep: 10
@@ -9,10 +8,9 @@ input:
   width: 32
 batch_size: 128
 timesteps: 8
-# u-Ticket specific metadata (SATA may ignore these, but keep for bookkeeping)
 u_ticket:
   rounds: 10
-  prune_per_round: 0.25   # typical value used in u-Ticket experiments (25% per round)
+  prune_per_round: 0.25   
   utilization_target: 1.0
 layers:
   - name: conv1

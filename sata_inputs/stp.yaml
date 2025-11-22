@@ -1,11 +1,9 @@
-# resnet19_stp.yaml
 name: resnet19_cifar10_stp
 input:
   channels: 3
   height: 32
   width: 32
 batch_size: 128
-# STP jointly prunes timesteps and spatial weights; provide a timestep budget
 timesteps: 8
 stp:
   decision_kl_threshold: 0.01

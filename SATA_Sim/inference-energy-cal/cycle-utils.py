@@ -124,7 +124,7 @@ if __name__ == "__main__":
     # print(scalesim_dict)
     scalesim_path = '../scale-sim'
 
-    output_filename = 'uticket/cycle-stat-temp.yaml'
+    output_filename = '/home/test/rakshitha/benchmarking-snn-pruning/SATA_Sim/results/uticket/cycle-stat.yaml'
     with open(output_filename, 'w') as outfile:
         yaml.dump(scalesim_dict, outfile, default_flow_style=False)
     print(f"Cycle stats written to {output_filename}")

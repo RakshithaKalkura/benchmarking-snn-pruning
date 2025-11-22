@@ -199,10 +199,10 @@ def comp_mem_energy(mem_filepath, cycle_dict, arch_configpath):
 
 if __name__ == "__main__":
 
-    cycle_path = './results/uticket/cycle-stat.yaml'
+    cycle_path = '/home/test/rakshitha/benchmarking-snn-pruning/SATA_Sim/results/uticket/cycle-stat.yaml'
     arch_path = '/home/test/rakshitha/benchmarking-snn-pruning/SATA_Sim/inference-energy-cal/archs/sata-config.yaml'
-    mem_path = './results/uticket/mem-stat.yaml'
-    comp_path = './results/uticket/comp-stat.yaml'
+    mem_path = '/home/test/rakshitha/benchmarking-snn-pruning/SATA_Sim/results/uticket/mem-stat.yaml'
+    comp_path = '/home/test/rakshitha/benchmarking-snn-pruning/SATA_Sim/results/uticket/comp-stat.yaml'
     # work_path = './workloads/workload_direct.yaml'
     work_path = '/home/test/rakshitha/benchmarking-snn-pruning/SATA_Sim/config/uticket.yaml'
 

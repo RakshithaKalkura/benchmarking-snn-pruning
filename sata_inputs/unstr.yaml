@@ -1,12 +1,10 @@
-# resnet19_unstructured.yaml
-# Network descriptor for SATA (synthetic mapping for ResNet-19 CIFAR10)
 name: resnet19_cifar10_unstructured
 input:
   channels: 3
   height: 32
   width: 32
 batch_size: 128
-timesteps: 8   # SNN timestep assumed; if running ANN-based SATA, set to 1
+timesteps: 8   
 layers:
   - name: conv1
     type: conv2d
@@ -19,7 +17,6 @@ layers:
     stride: [1,1]
     padding: [1,1]
 
-  # Stage 1 (expand to 128) - blocks with stride 2 at first conv
   - name: conv2_1
     type: conv2d
     C: 64
@@ -51,7 +48,6 @@ layers:
     stride: [1,1]
     padding: [1,1]
 
-  # Stage 2 (expand to 256)
   - name: conv3_1
     type: conv2d
     C: 128
@@ -73,7 +69,6 @@ layers:
     stride: [1,1]
     padding: [1,1]
 
-  # Stage 3 (expand to 512)
   - name: conv4_1
     type: conv2d
     C: 256
@@ -95,7 +90,6 @@ layers:
     stride: [1,1]
     padding: [1,1]
 
-  # Global pooling representation (flatten then FC)
   - name: fc1
     type: linear
     in: 512
