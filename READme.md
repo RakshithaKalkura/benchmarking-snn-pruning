@@ -1,4 +1,6 @@
-# Benchmarking Energy Efficiency of SNN pruning algorithms on SATA
+# Benchmarking Energy Efficiency of SNN Pruning Algorithms on SATA
+
+Details of the project are provided in the cs6886_project_ppt.pdf file.
 
 ### Installation:
 
