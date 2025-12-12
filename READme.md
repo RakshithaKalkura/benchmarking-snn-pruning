@@ -1,5 +1,8 @@
 # Benchmarking Energy Efficiency of SNN Pruning Algorithms on SATA
 
+### Problem statement
+![Problem statement of the project](https://github.com/RakshithaKalkura/benchmarking-snn-pruning/blob/main/ps.png)
+
 Details of the project are provided in this [file](https://github.com/RakshithaKalkura/benchmarking-snn-pruning/blob/main/cs6886_project_ppt.pdf)
 
 ### Installation:
